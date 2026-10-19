@@ -1,8 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 import AppShell from '@/components/AppShell';
 import { User, Brand } from '@/types';
 import { Button, Badge } from '@/components/ui';
-import { Plus, Upload, Edit, Trash2 } from 'lucide-react';
+import { Plus, Upload, Edit, Trash2, Download } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { route } from '@/lib/route';
 
@@ -14,6 +15,8 @@ interface Props {
 }
 
 export default function BrandsIndex({ auth, brands }: Props) {
+    const [importing, setImporting] = useState<Record<number, boolean>>({});
+    
     const handleDelete = async (slug: string, name: string) => {
         if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
 
@@ -46,6 +49,50 @@ export default function BrandsIndex({ auth, brands }: Props) {
         }
     };
 
+    const handleImport = async (brand: Brand) => {
+        if (!brand.slug) {
+            toast({ title: 'Error', description: 'Brand slug is missing', variant: 'error' });
+            return;
+        }
+
+        setImporting(prev => ({ ...prev, [brand.id]: true }));
+
+        try {
+            const response = await fetch(`/api/motorcycles/import-from-brand/${brand.slug}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                toast({
+                    title: 'Import Successful',
+                    description: `${result.data.imported} motorcycles imported, ${result.data.skipped} skipped`,
+                    variant: 'success',
+                });
+                // Reload page to update counts
+                router.reload();
+            } else {
+                toast({
+                    title: 'Import Failed',
+                    description: result.message || 'Unknown error occurred',
+                    variant: 'error',
+                });
+            }
+        } catch (error) {
+            toast({
+                title: 'Import Error',
+                description: error instanceof Error ? error.message : 'Network error',
+                variant: 'error',
+            });
+        } finally {
+            setImporting(prev => ({ ...prev, [brand.id]: false }));
+        }
+    };
+
     return (
         <AppShell auth={auth} breadcrumbs={[{ label: 'Brands' }]} title="Brands">
             <Head title="Brands" />
@@ -72,6 +119,7 @@ export default function BrandsIndex({ auth, brands }: Props) {
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Slug</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Motorcycles</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Website</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                             </tr>
@@ -88,6 +136,9 @@ export default function BrandsIndex({ auth, brands }: Props) {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{brand.slug}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <Badge variant="secondary">{brand.motorcycles_count || 0}</Badge>
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                                         {brand.website_url ? (
                                             <a href={brand.website_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 dark:text-blue-400">
@@ -97,16 +148,27 @@ export default function BrandsIndex({ auth, brands }: Props) {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right">
                                         <div className="flex justify-end gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleImport(brand)}
+                                                disabled={importing[brand.id]}
+                                                title="Import from External API"
+                                            >
+                                                {importing[brand.id] ? (
+                                                    <div className="animate-spin h-4 w-4 border-2 border-gray-300 border-t-blue-600 rounded-full" />
+                                                ) : (
+                                                    <Download className="h-4 w-4" />
+                                                )}
+                                            </Button>
                                             <Link href={route('admin.brands.edit', { brand: brand.id })}>
                                                 <Button variant="ghost" size="sm">
                                                     <Edit className="h-4 w-4" />
-                                                    Edit
                                                 </Button>
                                             </Link>
                                             <Button variant="ghost" size="sm" onClick={() => handleDelete(brand.slug, brand.name)}
                                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
                                                 <Trash2 className="h-4 w-4" />
-                                                Delete
                                             </Button>
                                         </div>
                                     </td>

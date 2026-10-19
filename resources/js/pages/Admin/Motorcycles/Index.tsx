@@ -344,3 +344,99 @@ export default function MotorcyclesIndex({ auth, motorcycles, brands, categories
         </AppShell>
     );
 }
+
+
+// Brand Import Panel Component
+function BrandImportPanel({ brands }: { brands: Brand[] }) {
+    const [importing, setImporting] = useState<Record<number, boolean>>({});
+    const [progress, setProgress] = useState<Record<number, { current: number; total: number }>>({});
+
+    const handleImport = async (brand: Brand) => {
+        if (!brand.slug) {
+            toast({ title: 'Error', description: 'Brand slug is missing', variant: 'error' });
+            return;
+        }
+
+        setImporting(prev => ({ ...prev, [brand.id]: true }));
+        setProgress(prev => ({ ...prev, [brand.id]: { current: 0, total: 0 } }));
+
+        try {
+            const response = await fetch(`/api/motorcycles/import-from-brand/${brand.slug}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                toast({
+                    title: 'Import Successful',
+                    description: `${result.data.imported} motorcycles imported, ${result.data.skipped} skipped`,
+                    variant: 'success',
+                });
+                // Reload page to update counts
+                router.reload();
+            } else {
+                toast({
+                    title: 'Import Failed',
+                    description: result.message || 'Unknown error occurred',
+                    variant: 'error',
+                });
+            }
+        } catch (error) {
+            toast({
+                title: 'Import Error',
+                description: error instanceof Error ? error.message : 'Network error',
+                variant: 'error',
+            });
+        } finally {
+            setImporting(prev => ({ ...prev, [brand.id]: false }));
+            setProgress(prev => ({ ...prev, [brand.id]: { current: 0, total: 0 } }));
+        }
+    };
+
+    return (
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow border border-gray-200 dark:border-gray-800 p-6 mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Import from External API
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {brands.map(brand => (
+                    <div
+                        key={brand.id}
+                        className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-400 dark:hover:border-blue-600 transition-colors"
+                    >
+                        <div className="flex-1">
+                            <div className="font-medium text-gray-900 dark:text-gray-100">
+                                {brand.name}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                                {brand.motorcycles_count || 0} motorcycle{brand.motorcycles_count !== 1 ? 's' : ''}
+                            </div>
+                        </div>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleImport(brand)}
+                            disabled={importing[brand.id]}
+                        >
+                            {importing[brand.id] ? (
+                                <>
+                                    <div className="animate-spin h-4 w-4 border-2 border-gray-300 border-t-blue-600 rounded-full" />
+                                    Importing...
+                                </>
+                            ) : (
+                                <>
+                                    <Upload className="h-4 w-4" />
+                                    Import
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}

@@ -70,6 +70,12 @@ class MotorcycleAdminController extends Controller
             return Brand::orderBy('name')->get()->toArray();
         });
         
+        // Add motorcycle counts to each brand
+        $brands = array_map(function ($brand) {
+            $brand['motorcycles_count'] = Motorcycle::where('brand_id', $brand['id'])->count();
+            return $brand;
+        }, $brands);
+        
         $categories = \Cache::remember('categories_for_filters', 3600, function () {
             return Category::orderBy('name')->get()->toArray();
         });

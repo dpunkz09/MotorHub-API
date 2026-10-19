@@ -67,3 +67,7 @@ Route::prefix('motorcycles')->middleware(['api.key', 'throttle:60,1'])->group(fu
 Route::prefix('motorcycle')->middleware('api.key')->group(function () {
     Route::get('/{slug}', [MotorcycleController::class, 'show']);
 });
+
+
+// Fetch and import from external API
+Route::post('/motorcycles/import-from-brand/{brandSlug}', [MotorcycleController::class, 'importFromBrand'])->middleware('throttle:10,1');

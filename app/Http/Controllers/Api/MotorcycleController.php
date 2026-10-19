@@ -628,4 +628,80 @@ class MotorcycleController extends Controller
             'related_motorcycle_6' => 'nullable|string',
         ]);
     }
+
+    /**
+     * Import motorcycles from external API by brand slug.
+     */
+    public function importFromBrand(Request $request, string $brandSlug): JsonResponse
+    {
+        set_time_limit(300); // 5 minutes
+        
+        \Log::info('External API import started', [
+            'brand_slug' => $brandSlug,
+            'timestamp' => now()->toDateTimeString(),
+        ]);
+
+        try {
+            // Fetch data from external API
+            $externalUrl = "https://www.kamote.ph/api/brand/{$brandSlug}";
+            
+            \Log::debug('Fetching from external API', [
+                'url' => $externalUrl,
+            ]);
+            
+            $response = \Http::timeout(60)->get($externalUrl);
+            
+            if (!$response->successful()) {
+                \Log::error('External API request failed', [
+                    'status' => $response->status(),
+                    'url' => $externalUrl,
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to fetch data from external API',
+                    'error' => "HTTP {$response->status()}",
+                ], 500);
+            }
+
+            $data = $response->json();
+            
+            if (!isset($data['motorcycles']) || !is_array($data['motorcycles'])) {
+                \Log::error('Invalid API response format', [
+                    'response' => $data,
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid data format from external API',
+                    'error' => 'Expected "motorcycles" array in response',
+                ], 422);
+            }
+
+            $motorcycles = $data['motorcycles'];
+            $totalRecords = count($motorcycles);
+            
+            \Log::info('External API data fetched successfully', [
+                'total_records' => $totalRecords,
+            ]);
+
+            // Use the existing import logic
+            $request->merge(['motorcycles' => $motorcycles]);
+            return $this->import($request);
+            
+        } catch (\Exception $e) {
+            \Log::error('External API import failed', [
+                'brand_slug' => $brandSlug,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'External API import failed: ' . $e->getMessage(),
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
 }
