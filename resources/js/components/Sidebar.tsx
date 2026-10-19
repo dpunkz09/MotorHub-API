@@ -26,7 +26,7 @@ interface NavItem {
     pattern: RegExp;
 }
 
-const navItems: NavItem[] = [
+const getNavItems = (): NavItem[] => [
     {
         label: 'Dashboard',
         href: route('admin.dashboard'),
@@ -68,6 +68,7 @@ const navItems: NavItem[] = [
 export default function Sidebar({ currentPath }: SidebarProps) {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const navItems = getNavItems();
 
     const isActive = (pattern: RegExp) => pattern.test(currentPath);
 

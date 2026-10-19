@@ -5,6 +5,7 @@ import { User, Category } from '@/types';
 import { Button, Input, ImageUpload, Progress } from '@/components/ui';
 import { Save, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { route } from '@/lib/route';
 import { useConfetti } from '@/hooks/use-confetti';
 
 interface Props {

@@ -4,6 +4,7 @@ import { User, Brand } from '@/types';
 import { Button, Badge } from '@/components/ui';
 import { Plus, Upload, Edit, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { route } from '@/lib/route';
 
 interface Props {
     auth: {

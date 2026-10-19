@@ -67,11 +67,11 @@ class MotorcycleAdminController extends Controller
 
         // Cache brands and categories for 1 hour to avoid repeated queries
         $brands = \Cache::remember('brands_for_filters', 3600, function () {
-            return Brand::orderBy('name')->get();
+            return Brand::orderBy('name')->get()->toArray();
         });
         
         $categories = \Cache::remember('categories_for_filters', 3600, function () {
-            return Category::orderBy('name')->get();
+            return Category::orderBy('name')->get()->toArray();
         });
 
         return Inertia::render('Admin/Motorcycles/Index', [
@@ -89,13 +89,13 @@ class MotorcycleAdminController extends Controller
      */
     public function create(): Response
     {
-        // Use cached brands and categories
+        // Get brands and categories as arrays, then cache
         $brands = \Cache::remember('brands_for_filters', 3600, function () {
-            return Brand::orderBy('name')->get();
+            return Brand::orderBy('name')->get()->toArray();
         });
         
         $categories = \Cache::remember('categories_for_filters', 3600, function () {
-            return Category::orderBy('name')->get();
+            return Category::orderBy('name')->get()->toArray();
         });
 
         return Inertia::render('Admin/Motorcycles/Create', [
@@ -111,13 +111,13 @@ class MotorcycleAdminController extends Controller
     {
         $motorcycle->load(['brand', 'category']);
         
-        // Use cached brands and categories
+        // Get brands and categories as arrays, then cache
         $brands = \Cache::remember('brands_for_filters', 3600, function () {
-            return Brand::orderBy('name')->get();
+            return Brand::orderBy('name')->get()->toArray();
         });
         
         $categories = \Cache::remember('categories_for_filters', 3600, function () {
-            return Category::orderBy('name')->get();
+            return Category::orderBy('name')->get()->toArray();
         });
 
         return Inertia::render('Admin/Motorcycles/Edit', [

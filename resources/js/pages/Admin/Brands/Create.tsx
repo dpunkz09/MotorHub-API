@@ -6,6 +6,7 @@ import { Button, Input, ImageUpload, Progress } from '@/components/ui';
 import { Save, RefreshCw } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useConfetti } from '@/hooks/use-confetti';
+import { route } from '@/lib/route';
 
 interface Props {
     auth: { user: User };

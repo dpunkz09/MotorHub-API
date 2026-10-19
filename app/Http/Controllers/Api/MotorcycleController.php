@@ -296,11 +296,19 @@ class MotorcycleController extends Controller
      */
     public function import(Request $request): JsonResponse
     {
+        // Increase execution time for large imports
+        set_time_limit(300); // 5 minutes
+        
         $validator = Validator::make($request->all(), [
             'motorcycles' => 'required|array|min:1|max:1000',
         ]);
 
         if ($validator->fails()) {
+            \Log::warning('Motorcycle import validation failed', [
+                'errors' => $validator->errors()->toArray(),
+                'data_count' => count($request->input('motorcycles', [])),
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'errors' => $validator->errors(),
@@ -310,32 +318,82 @@ class MotorcycleController extends Controller
         $imported = 0;
         $skipped = 0;
         $errors = [];
+        $motorcycles = $request->input('motorcycles');
+        
+        \Log::info('Motorcycle import started', [
+            'total_records' => count($motorcycles),
+            'timestamp' => now()->toDateTimeString(),
+        ]);
+
+        // Pre-load all brands and categories to avoid repeated queries
+        $brandsCache = Brand::pluck('id', 'name')->toArray();
+        $categoriesCache = Category::pluck('id', 'name')->toArray();
+        
+        \Log::debug('Loaded lookup caches', [
+            'brands_count' => count($brandsCache),
+            'categories_count' => count($categoriesCache),
+        ]);
 
         // Use transaction for better performance and data integrity
         \DB::beginTransaction();
         
         try {
-            foreach ($request->input('motorcycles') as $index => $motorcycleData) {
+            foreach ($motorcycles as $index => $motorcycleData) {
                 try {
+                    $recordInfo = [
+                        'index' => $index,
+                        'slug' => $motorcycleData['slug'] ?? 'missing',
+                        'model' => $motorcycleData['model'] ?? 'missing',
+                        'brand' => $motorcycleData['brand'] ?? $motorcycleData['brand_id'] ?? 'missing',
+                    ];
+                    
+                    // Validate required fields
+                    if (!isset($motorcycleData['slug'])) {
+                        throw new \Exception("Missing required field 'slug'");
+                    }
+                    if (!isset($motorcycleData['model'])) {
+                        throw new \Exception("Missing required field 'model'");
+                    }
+                    
                     // Store the desired ID if provided
                     $desiredId = isset($motorcycleData['id']) ? $motorcycleData['id'] : null;
                 
-                // Convert brand name to brand_id
+                // Convert brand name to brand_id using cached data
                 if (isset($motorcycleData['brand']) && !isset($motorcycleData['brand_id'])) {
-                    $brand = Brand::where('name', $motorcycleData['brand'])->first();
-                    if ($brand) {
-                        $motorcycleData['brand_id'] = $brand->id;
+                    $brandName = $motorcycleData['brand'];
+                    if (isset($brandsCache[$brandName])) {
+                        $motorcycleData['brand_id'] = $brandsCache[$brandName];
+                        \Log::debug('Brand name converted to ID', array_merge($recordInfo, [
+                            'brand_name' => $brandName,
+                            'brand_id' => $brandsCache[$brandName],
+                        ]));
                     } else {
-                        throw new \Exception("Brand '{$motorcycleData['brand']}' not found");
+                        \Log::error('Brand not found during import', array_merge($recordInfo, [
+                            'brand_name' => $brandName,
+                            'available_brands' => array_keys($brandsCache),
+                        ]));
+                        throw new \Exception("Brand '{$brandName}' not found. Available brands: " . implode(', ', array_keys($brandsCache)));
                     }
                     unset($motorcycleData['brand']);
+                } elseif (!isset($motorcycleData['brand_id'])) {
+                    \Log::error('Missing brand information', $recordInfo);
+                    throw new \Exception("Either 'brand' or 'brand_id' is required");
                 }
 
-                // Convert category name to category_id
+                // Convert category name to category_id using cached data
                 if (isset($motorcycleData['category']) && !isset($motorcycleData['category_id'])) {
-                    $category = Category::where('name', $motorcycleData['category'])->first();
-                    if ($category) {
-                        $motorcycleData['category_id'] = $category->id;
+                    $categoryName = $motorcycleData['category'];
+                    if (isset($categoriesCache[$categoryName])) {
+                        $motorcycleData['category_id'] = $categoriesCache[$categoryName];
+                        \Log::debug('Category name converted to ID', array_merge($recordInfo, [
+                            'category_name' => $categoryName,
+                            'category_id' => $categoriesCache[$categoryName],
+                        ]));
+                    } else {
+                        \Log::warning('Category not found, will be set to null', array_merge($recordInfo, [
+                            'category_name' => $categoryName,
+                            'available_categories' => array_keys($categoriesCache),
+                        ]));
                     }
                     unset($motorcycleData['category']);
                 }
@@ -360,12 +418,32 @@ class MotorcycleController extends Controller
                 }
 
                 // Clean up numeric fields that might have text
-                if (isset($motorcycleData['engine_displacement']) && is_string($motorcycleData['engine_displacement'])) {
-                    $motorcycleData['engine_displacement'] = (int) filter_var($motorcycleData['engine_displacement'], FILTER_SANITIZE_NUMBER_INT);
+                if (isset($motorcycleData['engine_displacement'])) {
+                    $original = $motorcycleData['engine_displacement'];
+                    if (is_string($original)) {
+                        // Extract numeric value (supports both integer and decimal)
+                        $motorcycleData['engine_displacement'] = (float) filter_var($original, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                    } else {
+                        // Already numeric, ensure it's float
+                        $motorcycleData['engine_displacement'] = (float) $original;
+                    }
+                    if ((string)$original !== (string)$motorcycleData['engine_displacement']) {
+                        \Log::debug('Engine displacement sanitized', array_merge($recordInfo, [
+                            'original' => $original,
+                            'sanitized' => $motorcycleData['engine_displacement'],
+                        ]));
+                    }
                 }
                 
                 if (isset($motorcycleData['price']) && is_string($motorcycleData['price'])) {
+                    $original = $motorcycleData['price'];
                     $motorcycleData['price'] = (float) filter_var($motorcycleData['price'], FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                    if ((float)$original !== $motorcycleData['price']) {
+                        \Log::debug('Price sanitized', array_merge($recordInfo, [
+                            'original' => $original,
+                            'sanitized' => $motorcycleData['price'],
+                        ]));
+                    }
                 }
 
                 // Clean up "?" values in string fields - convert to null
@@ -394,29 +472,60 @@ class MotorcycleController extends Controller
                 
                 if ($existing) {
                     // Update existing motorcycle
+                    \Log::info('Updating existing motorcycle', array_merge($recordInfo, [
+                        'existing_id' => $existing->id,
+                        'action' => 'update',
+                    ]));
+                    
                     // SECURITY: Prevent ID manipulation - ignore provided ID for updates
                     unset($motorcycleData['id']);
                     $existing->update($motorcycleData);
                     $imported++;
                 } else {
+                    // Create new motorcycle
+                    \Log::info('Creating new motorcycle', array_merge($recordInfo, [
+                        'action' => 'create',
+                    ]));
+                    
                     // SECURITY: Prevent ID manipulation - ignore provided ID, use auto-increment
                     unset($motorcycleData['id']);
-                    Motorcycle::create($motorcycleData);
+                    $motorcycle = Motorcycle::create($motorcycleData);
+                    \Log::info('Motorcycle created successfully', array_merge($recordInfo, [
+                        'created_id' => $motorcycle->id,
+                    ]));
                     $imported++;
                 }
             } catch (\Exception $e) {
                 $skipped++;
-                $errors[] = [
+                $errorDetail = [
                     'index' => $index,
                     'slug' => $motorcycleData['slug'] ?? 'unknown',
                     'model' => $motorcycleData['model'] ?? 'unknown',
+                    'brand' => $motorcycleData['brand'] ?? $motorcycleData['brand_id'] ?? 'unknown',
                     'error' => $e->getMessage(),
+                    'error_type' => get_class($e),
+                    'line' => $e->getLine(),
                 ];
+                
+                \Log::error('Motorcycle import record skipped', array_merge($errorDetail, [
+                    'trace' => $e->getTraceAsString(),
+                    'raw_data' => $motorcycleData,
+                ]));
+                
+                $errors[] = $errorDetail;
             }
         }
         
         // Commit transaction
         \DB::commit();
+        
+        \Log::info('Motorcycle import completed', [
+            'total' => count($motorcycles),
+            'imported' => $imported,
+            'skipped' => $skipped,
+            'success_rate' => count($motorcycles) > 0 ? round(($imported / count($motorcycles)) * 100, 2) . '%' : '0%',
+            'duration' => 'completed',
+        ]);
 
         return response()->json([
             'success' => true,
@@ -431,13 +540,19 @@ class MotorcycleController extends Controller
         // Rollback on failure
         \DB::rollBack();
         
-        \Log::error('Motorcycle import failed', [
-            'error' => $e->getMessage()
+        \Log::error('Motorcycle import transaction failed - rolled back', [
+            'error' => $e->getMessage(),
+            'error_type' => get_class($e),
+            'line' => $e->getLine(),
+            'file' => $e->getFile(),
+            'trace' => $e->getTraceAsString(),
+            'imported_before_failure' => $imported,
+            'skipped_before_failure' => $skipped,
         ]);
         
         return response()->json([
             'success' => false,
-            'message' => 'Import failed - all changes rolled back',
+            'message' => 'Import failed - all changes rolled back: ' . $e->getMessage(),
             'errors' => [$e->getMessage()],
         ], 500);
     }

@@ -5,6 +5,7 @@ import { User } from '@/types';
 import { Button } from '@/components/ui';
 import { ArrowRight, Copy, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { route } from '@/lib/route';
 
 interface Props {
     auth: { user: User };

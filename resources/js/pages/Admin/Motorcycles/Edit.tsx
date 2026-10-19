@@ -15,7 +15,7 @@ interface Props {
     categories: Category[];
 }
 
-export default function EditMotorcycle({ auth, motorcycle, brands, categories }: Props) {
+export default function EditMotorcycle({ auth, motorcycle, brands = [], categories = [] }: Props) {
     const [formData, setFormData] = useState({
         model: motorcycle.model || '',
         slug: motorcycle.slug || '',
@@ -214,7 +214,7 @@ export default function EditMotorcycle({ auth, motorcycle, brands, categories }:
                                             required
                                         >
                                             <option value="">Select Brand</option>
-                                            {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                            {brands?.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                                         </Select>
                                     </div>
 
@@ -228,7 +228,7 @@ export default function EditMotorcycle({ auth, motorcycle, brands, categories }:
                                             onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
                                         >
                                             <option value="">Select Category</option>
-                                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                            {categories?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </Select>
                                     </div>
                                 </div>

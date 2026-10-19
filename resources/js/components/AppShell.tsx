@@ -1,5 +1,5 @@
 import { ReactNode, useEffect } from 'react';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { User } from '@/types';
 import Sidebar from './Sidebar';
 import { Toaster } from './ui/toaster';
@@ -17,7 +17,8 @@ interface AppShellProps {
 }
 
 export default function AppShell({ auth, children, breadcrumbs, title }: AppShellProps) {
-    const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+    const page = usePage();
+    const currentPath = page.url;
 
     // Inertia progress bar styling
     useEffect(() => {

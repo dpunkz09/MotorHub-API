@@ -82,6 +82,7 @@ class Motorcycle extends Model
      */
     protected $casts = [
         'price' => 'decimal:2',
+        'engine_displacement' => 'decimal:2',
         'fuel_consumption' => 'string', // Changed from decimal to string because it contains "km/L"
         'is_front_abs' => 'boolean',
         'is_rear_abs' => 'boolean',

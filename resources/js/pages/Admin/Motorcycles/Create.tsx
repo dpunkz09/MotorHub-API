@@ -6,6 +6,7 @@ import { Button, Input, Select } from '@/components/ui';
 import { Save } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useConfetti } from '@/hooks/use-confetti';
+import { route } from '@/lib/route';
 
 interface Props {
     auth: { user: User };
@@ -13,7 +14,7 @@ interface Props {
     categories: Category[];
 }
 
-export default function CreateMotorcycle({ auth, brands, categories }: Props) {
+export default function CreateMotorcycle({ auth, brands = [], categories = [] }: Props) {
     const [formData, setFormData] = useState({
         name: '',
         slug: '',
@@ -89,7 +90,7 @@ export default function CreateMotorcycle({ auth, brands, categories }: Props) {
                                 </label>
                                 <Select id="brand_id" value={formData.brand_id} onChange={(e) => setFormData({ ...formData, brand_id: e.target.value })} required>
                                     <option value="">Select Brand</option>
-                                    {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                    {brands?.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                                 </Select>
                             </div>
 
@@ -97,7 +98,7 @@ export default function CreateMotorcycle({ auth, brands, categories }: Props) {
                                 <label htmlFor="category_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</label>
                                 <Select id="category_id" value={formData.category_id} onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}>
                                     <option value="">Select Category</option>
-                                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    {categories?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </Select>
                             </div>
                         </div>

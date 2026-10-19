@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,56 +12,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // For PostgreSQL compatibility, check if indexes exist before creating
-        Schema::table('motorcycles', function (Blueprint $table) {
-            if (!$this->indexExists('motorcycles', 'motorcycles_brand_slug_unique')) {
-                $table->unique(['brand_id', 'slug'], 'motorcycles_brand_slug_unique');
-            }
-            if (!$this->indexExists('motorcycles', 'motorcycles_price_index')) {
-                $table->index('price', 'motorcycles_price_index');
-            }
-            if (!$this->indexExists('motorcycles', 'motorcycles_is_latest_index')) {
-                $table->index('is_latest', 'motorcycles_is_latest_index');
-            }
-            if (!$this->indexExists('motorcycles', 'motorcycles_is_top_index')) {
-                $table->index('is_top_motorcycle', 'motorcycles_is_top_index');
-            }
-            if (!$this->indexExists('motorcycles', 'motorcycles_brand_category_index')) {
-                $table->index(['brand_id', 'category_id'], 'motorcycles_brand_category_index');
-            }
-        });
+        // Create indexes for motorcycles table
+        DB::statement('CREATE UNIQUE INDEX IF NOT EXISTS motorcycles_brand_slug_unique ON motorcycles (brand_id, slug)');
+        DB::statement('CREATE INDEX IF NOT EXISTS motorcycles_price_index ON motorcycles (price)');
+        DB::statement('CREATE INDEX IF NOT EXISTS motorcycles_is_latest_index ON motorcycles (is_latest)');
+        DB::statement('CREATE INDEX IF NOT EXISTS motorcycles_is_top_index ON motorcycles (is_top_motorcycle)');
+        DB::statement('CREATE INDEX IF NOT EXISTS motorcycles_brand_category_index ON motorcycles (brand_id, category_id)');
 
-        Schema::table('brands', function (Blueprint $table) {
-            if (!$this->indexExists('brands', 'brands_name_index')) {
-                $table->index('name', 'brands_name_index');
-            }
-        });
+        // Create indexes for brands table
+        DB::statement('CREATE INDEX IF NOT EXISTS brands_name_index ON brands (name)');
 
-        Schema::table('categories', function (Blueprint $table) {
-            if (!$this->indexExists('categories', 'categories_name_index')) {
-                $table->index('name', 'categories_name_index');
-            }
-            if (!$this->indexExists('categories', 'categories_is_common_index')) {
-                $table->index('is_common', 'categories_is_common_index');
-            }
-        });
-    }
-
-    /**
-     * Check if an index exists on a table.
-     */
-    private function indexExists(string $table, string $index): bool
-    {
-        $connection = Schema::getConnection();
-        $schema = $connection->getDoctrineSchemaManager();
-        
-        try {
-            $indexes = $schema->listTableIndexes($table);
-            return isset($indexes[$index]);
-        } catch (\Exception $e) {
-            // If we can't check, assume it doesn't exist
-            return false;
-        }
+        // Create indexes for categories table
+        DB::statement('CREATE INDEX IF NOT EXISTS categories_name_index ON categories (name)');
+        DB::statement('CREATE INDEX IF NOT EXISTS categories_is_common_index ON categories (is_common)');
     }
 
     /**
@@ -68,22 +32,13 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('motorcycles', function (Blueprint $table) {
-            $table->dropUnique('motorcycles_brand_slug_unique');
-            $table->dropIndex('motorcycles_status_index');
-            $table->dropIndex('motorcycles_price_index');
-            $table->dropIndex('motorcycles_is_latest_index');
-            $table->dropIndex('motorcycles_is_top_index');
-            $table->dropIndex('motorcycles_brand_category_index');
-        });
-
-        Schema::table('brands', function (Blueprint $table) {
-            $table->dropIndex('brands_name_index');
-        });
-
-        Schema::table('categories', function (Blueprint $table) {
-            $table->dropIndex('categories_name_index');
-            $table->dropIndex('categories_is_common_index');
-        });
+        DB::statement('DROP INDEX IF EXISTS motorcycles_brand_slug_unique');
+        DB::statement('DROP INDEX IF EXISTS motorcycles_price_index');
+        DB::statement('DROP INDEX IF EXISTS motorcycles_is_latest_index');
+        DB::statement('DROP INDEX IF EXISTS motorcycles_is_top_index');
+        DB::statement('DROP INDEX IF EXISTS motorcycles_brand_category_index');
+        DB::statement('DROP INDEX IF EXISTS brands_name_index');
+        DB::statement('DROP INDEX IF EXISTS categories_name_index');
+        DB::statement('DROP INDEX IF EXISTS categories_is_common_index');
     }
 };
