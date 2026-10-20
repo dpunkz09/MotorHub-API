@@ -1,5 +1,5 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { useState, useEffect } from 'react';
 import AppShell from '@/components/AppShell';
 import { User, Motorcycle, Brand, Category, PaginatedResponse } from '@/types';
 import { Button, Badge, Input, Select } from '@/components/ui';
@@ -31,6 +31,17 @@ export default function MotorcyclesIndex({ auth, motorcycles, brands, categories
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [uploadingImageFor, setUploadingImageFor] = useState<number | null>(null);
     const [searchQuery, setSearchQuery] = useState(filters.search || '');
+    const { props } = usePage<{ flash?: { success?: string; error?: string } }>();
+
+    // Show flash messages
+    useEffect(() => {
+        if (props.flash?.success) {
+            toast({ title: 'Success', description: props.flash.success, variant: 'default' });
+        }
+        if (props.flash?.error) {
+            toast({ title: 'Error', description: props.flash.error, variant: 'destructive' });
+        }
+    }, [props.flash]);
 
     const handleFilterChange = (key: string, value: string) => {
         setFilterState(prev => ({ ...prev, [key]: value }));
@@ -111,14 +122,9 @@ export default function MotorcyclesIndex({ auth, motorcycles, brands, categories
         if (!confirm(`Delete ${selectedIds.length} motorcycle(s)? This cannot be undone.`)) return;
 
         router.post('/admin/motorcycles/mass-delete', { ids: selectedIds }, {
-            preserveState: true,
             preserveScroll: true,
             onSuccess: () => {
-                toast({ title: 'Motorcycles Deleted', description: `${selectedIds.length} motorcycle(s) deleted`, variant: 'success' });
                 setSelectedIds([]);
-            },
-            onError: () => {
-                toast({ title: 'Delete Failed', variant: 'error' });
             },
         });
     };

@@ -161,9 +161,6 @@ class MotorcycleAdminController extends Controller
 
         $count = Motorcycle::whereIn('id', $validated['ids'])->delete();
 
-        return response()->json([
-            'message' => "{$count} motorcycle(s) deleted successfully",
-            'count' => $count,
-        ]);
+        return redirect()->back()->with('success', "{$count} motorcycle(s) deleted successfully");
     }
 }
