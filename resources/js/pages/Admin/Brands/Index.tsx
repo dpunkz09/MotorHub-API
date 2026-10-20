@@ -51,7 +51,15 @@ export default function BrandsIndex({ auth, brands }: Props) {
 
     const handleImport = async (brand: Brand) => {
         if (!brand.slug) {
-            toast({ title: 'Error', description: 'Brand slug is missing', variant: 'error' });
+            toast({ 
+                title: 'Error', 
+                description: 'Brand slug is missing', 
+                variant: 'destructive' 
+            });
+            return;
+        }
+
+        if (!confirm(`Import motorcycles for "${brand.name}"?\n\nThis will fetch data from the external API and may take a few minutes.`)) {
             return;
         }
 
@@ -68,26 +76,79 @@ export default function BrandsIndex({ auth, brands }: Props) {
             const result = await response.json();
 
             if (result.success) {
+                const { imported, skipped, total, duration_seconds } = result.data;
+                const errorCount = result.data.errors?.length || 0;
+                
+                // Build detailed success message
+                let description = `✓ Imported: ${imported} motorcycles\n`;
+                if (skipped > 0) description += `⊘ Skipped: ${skipped} motorcycles\n`;
+                if (errorCount > 0) description += `✗ Errors: ${errorCount} records\n`;
+                if (duration_seconds) description += `⏱ Duration: ${duration_seconds}s`;
+
                 toast({
-                    title: 'Import Successful',
-                    description: `${result.data.imported} motorcycles imported, ${result.data.skipped} skipped`,
-                    variant: 'success',
+                    title: 'Import Completed',
+                    description,
+                    variant: 'default',
+                    duration: 8000,
                 });
+
+                // Show first few errors if any
+                if (errorCount > 0 && result.data.errors) {
+                    const firstErrors = result.data.errors.slice(0, 3);
+                    const errorDetails = firstErrors.map((err: any) => 
+                        `${err.slug || 'Unknown'}: ${err.error}`
+                    ).join('\n');
+                    
+                    setTimeout(() => {
+                        toast({
+                            title: `Import Errors (showing ${Math.min(3, errorCount)} of ${errorCount})`,
+                            description: errorDetails,
+                            variant: 'destructive',
+                            duration: 10000,
+                        });
+                    }, 500);
+                }
+
                 // Reload page to update counts
                 router.reload();
             } else {
+                // Detailed error message
+                const errorMsg = result.error || result.message || 'Unknown error occurred';
+                const statusCode = response.status;
+                
+                let description = `Status: ${statusCode}\n`;
+                description += `Error: ${errorMsg}\n`;
+                
+                // Add specific guidance based on error type
+                if (statusCode === 404) {
+                    description += '\nThe brand was not found on the external API.';
+                } else if (statusCode === 422) {
+                    description += '\nThe API response format was invalid or missing required data.';
+                } else if (statusCode === 429) {
+                    description += '\nRate limit exceeded. Please try again in a few minutes.';
+                } else if (statusCode >= 500) {
+                    description += '\nServer error. Please check the logs or try again later.';
+                }
+
                 toast({
                     title: 'Import Failed',
-                    description: result.message || 'Unknown error occurred',
-                    variant: 'error',
+                    description,
+                    variant: 'destructive',
+                    duration: 10000,
                 });
             }
         } catch (error) {
+            // Network or parsing error
+            const errorMsg = error instanceof Error ? error.message : 'Unknown network error';
+            
             toast({
                 title: 'Import Error',
-                description: error instanceof Error ? error.message : 'Network error',
-                variant: 'error',
+                description: `Network or connection error:\n${errorMsg}\n\nPlease check your internet connection and try again.`,
+                variant: 'destructive',
+                duration: 10000,
             });
+            
+            console.error('Import error:', error);
         } finally {
             setImporting(prev => ({ ...prev, [brand.id]: false }));
         }
