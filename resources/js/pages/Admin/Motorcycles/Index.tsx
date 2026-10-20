@@ -102,7 +102,7 @@ export default function MotorcyclesIndex({ auth, motorcycles, brands, categories
         }
     };
 
-    const handleMassDelete = async () => {
+    const handleMassDelete = () => {
         if (selectedIds.length === 0) {
             toast({ title: 'No Selection', description: 'Select motorcycles to delete', variant: 'warning' });
             return;
@@ -110,23 +110,17 @@ export default function MotorcyclesIndex({ auth, motorcycles, brands, categories
 
         if (!confirm(`Delete ${selectedIds.length} motorcycle(s)? This cannot be undone.`)) return;
 
-        try {
-            const response = await fetch('/api/motorcycles/mass-delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: selectedIds }),
-            });
-
-            if (response.ok) {
+        router.post(route('admin.motorcycles.mass-delete'), { ids: selectedIds }, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
                 toast({ title: 'Motorcycles Deleted', description: `${selectedIds.length} motorcycle(s) deleted`, variant: 'success' });
                 setSelectedIds([]);
-                router.reload();
-            } else {
+            },
+            onError: () => {
                 toast({ title: 'Delete Failed', variant: 'error' });
-            }
-        } catch (error) {
-            toast({ title: 'Error', variant: 'error' });
-        }
+            },
+        });
     };
 
     const toggleSelectAll = () => {

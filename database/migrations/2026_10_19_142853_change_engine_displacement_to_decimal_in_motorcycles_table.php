@@ -14,7 +14,9 @@ return new class extends Migration
     {
         // Change engine_displacement from integer to decimal(6,2)
         // This allows values like 175.3, 149.6, 1254.0, etc.
-        DB::statement('ALTER TABLE motorcycles ALTER COLUMN engine_displacement TYPE NUMERIC(6,2) USING engine_displacement::numeric');
+        Schema::table('motorcycles', function (Blueprint $table) {
+            $table->decimal('engine_displacement', 6, 2)->nullable()->change();
+        });
     }
 
     /**
@@ -23,6 +25,8 @@ return new class extends Migration
     public function down(): void
     {
         // Revert back to integer (will lose decimal precision)
-        DB::statement('ALTER TABLE motorcycles ALTER COLUMN engine_displacement TYPE INTEGER USING engine_displacement::integer');
+        Schema::table('motorcycles', function (Blueprint $table) {
+            $table->integer('engine_displacement')->nullable()->change();
+        });
     }
 };
