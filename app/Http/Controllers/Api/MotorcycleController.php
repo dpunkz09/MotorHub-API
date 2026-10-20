@@ -318,9 +318,12 @@ class MotorcycleController extends Controller
         }
 
         $imported = 0;
+        $updated = 0;
         $skipped = 0;
+        $duplicateSkipped = 0;
         $errors = [];
         $motorcycles = $request->input('motorcycles');
+        $processedSlugs = []; // Track slugs we've already processed in this batch
 
         \Log::info('Motorcycle import started', [
             'total_records' => count($motorcycles),
@@ -356,6 +359,32 @@ class MotorcycleController extends Controller
                     if (! isset($motorcycleData['model'])) {
                         throw new \Exception("Missing required field 'model'");
                     }
+
+                    $slug = $motorcycleData['slug'];
+
+                    // Check for duplicates within this batch
+                    if (isset($processedSlugs[$slug])) {
+                        $duplicateSkipped++;
+                        \Log::warning('Duplicate slug in batch', array_merge($recordInfo, [
+                            'slug' => $slug,
+                            'previous_index' => $processedSlugs[$slug],
+                            'reason' => 'Same slug already processed in this import batch',
+                        ]));
+
+                        $errors[] = [
+                            'index' => $index,
+                            'slug' => $slug,
+                            'model' => $motorcycleData['model'] ?? 'unknown',
+                            'brand' => $motorcycleData['brand'] ?? $motorcycleData['brand_id'] ?? 'unknown',
+                            'error' => 'Duplicate slug in import batch (already at index '.$processedSlugs[$slug].')',
+                            'error_type' => 'DuplicateSlugException',
+                        ];
+
+                        continue; // Skip this duplicate
+                    }
+
+                    // Mark this slug as processed
+                    $processedSlugs[$slug] = $index;
 
                     // Store the desired ID if provided
                     $desiredId = isset($motorcycleData['id']) ? $motorcycleData['id'] : null;
@@ -482,7 +511,7 @@ class MotorcycleController extends Controller
                         // SECURITY: Prevent ID manipulation - ignore provided ID for updates
                         unset($motorcycleData['id']);
                         $existing->update($motorcycleData);
-                        $imported++;
+                        $updated++;
                     } else {
                         // Create new motorcycle
                         \Log::info('Creating new motorcycle', array_merge($recordInfo, [
@@ -524,17 +553,32 @@ class MotorcycleController extends Controller
             \Log::info('Motorcycle import completed', [
                 'total' => count($motorcycles),
                 'imported' => $imported,
+                'updated' => $updated,
                 'skipped' => $skipped,
-                'success_rate' => count($motorcycles) > 0 ? round(($imported / count($motorcycles)) * 100, 2).'%' : '0%',
+                'duplicate_skipped' => $duplicateSkipped,
+                'success_rate' => count($motorcycles) > 0 ? round((($imported + $updated) / count($motorcycles)) * 100, 2).'%' : '0%',
                 'duration' => 'completed',
             ]);
 
+            $message = "Import completed: {$imported} created";
+            if ($updated > 0) {
+                $message .= ", {$updated} updated";
+            }
+            if ($skipped > 0) {
+                $message .= ", {$skipped} skipped";
+            }
+            if ($duplicateSkipped > 0) {
+                $message .= ", {$duplicateSkipped} duplicates ignored";
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => "Import completed: {$imported} imported, {$skipped} skipped",
+                'message' => $message,
                 'data' => [
                     'imported' => $imported,
+                    'updated' => $updated,
                     'skipped' => $skipped,
+                    'duplicate_skipped' => $duplicateSkipped,
                     'errors' => $errors,
                 ],
             ]);
@@ -549,7 +593,9 @@ class MotorcycleController extends Controller
                 'file' => $e->getFile(),
                 'trace' => $e->getTraceAsString(),
                 'imported_before_failure' => $imported,
+                'updated_before_failure' => $updated,
                 'skipped_before_failure' => $skipped,
+                'duplicate_skipped_before_failure' => $duplicateSkipped,
             ]);
 
             return response()->json([

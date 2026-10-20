@@ -76,12 +76,15 @@ export default function BrandsIndex({ auth, brands }: Props) {
             const result = await response.json();
 
             if (result.success) {
-                const { imported, skipped, total, duration_seconds } = result.data;
+                const { imported, updated, skipped, duplicate_skipped, total, duration_seconds } = result.data;
                 const errorCount = result.data.errors?.length || 0;
                 
                 // Build detailed success message
-                let description = `✓ Imported: ${imported} motorcycles\n`;
+                let description = '';
+                if (imported > 0) description += `✓ Created: ${imported} motorcycles\n`;
+                if (updated > 0) description += `↻ Updated: ${updated} motorcycles\n`;
                 if (skipped > 0) description += `⊘ Skipped: ${skipped} motorcycles\n`;
+                if (duplicate_skipped > 0) description += `⊗ Duplicates: ${duplicate_skipped} motorcycles\n`;
                 if (errorCount > 0) description += `✗ Errors: ${errorCount} records\n`;
                 if (duration_seconds) description += `⏱ Duration: ${duration_seconds}s`;
 
