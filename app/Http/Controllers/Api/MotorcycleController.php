@@ -685,6 +685,35 @@ class MotorcycleController extends Controller
                 'total_records' => $totalRecords,
             ]);
 
+            // Find the brand by slug to ensure imported motorcycles are assigned to it
+            $brand = Brand::where('slug', $brandSlug)->first();
+            
+            if (!$brand) {
+                \Log::error('Brand not found for import', [
+                    'brand_slug' => $brandSlug,
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => "Brand '{$brandSlug}' not found in database",
+                    'error' => 'Brand must exist before importing motorcycles',
+                ], 404);
+            }
+
+            // Override brand for all motorcycles to match the import source
+            foreach ($motorcycles as &$motorcycle) {
+                $motorcycle['brand_id'] = $brand->id;
+                // Remove brand name to prevent conflicts
+                unset($motorcycle['brand']);
+            }
+            unset($motorcycle); // Break reference
+            
+            \Log::info('Brand assignment overridden for import', [
+                'brand_id' => $brand->id,
+                'brand_name' => $brand->name,
+                'brand_slug' => $brandSlug,
+            ]);
+
             // Use the existing import logic
             $request->merge(['motorcycles' => $motorcycles]);
             return $this->import($request);
