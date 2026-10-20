@@ -6,7 +6,6 @@ import { Button, Badge, Input, Select } from '@/components/ui';
 import { Plus, Upload, Edit, Trash2, Filter, X, Search, Image as ImageIcon } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { route } from '@/lib/route';
-import motorcycles from '@/routes/admin/motorcycles';
 
 interface Props {
     auth: { user: User };
@@ -111,7 +110,7 @@ export default function MotorcyclesIndex({ auth, motorcycles, brands, categories
 
         if (!confirm(`Delete ${selectedIds.length} motorcycle(s)? This cannot be undone.`)) return;
 
-        router.post(motorcycles.massDelete.url(), { ids: selectedIds }, {
+        router.post('/admin/motorcycles/mass-delete', { ids: selectedIds }, {
             preserveState: true,
             preserveScroll: true,
             onSuccess: () => {
