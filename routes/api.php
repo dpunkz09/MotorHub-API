@@ -12,8 +12,8 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-// Image upload routes (require authentication)
-Route::middleware('auth:sanctum')->group(function () {
+// Image upload routes
+Route::middleware('throttle:60,1')->group(function () {
     Route::post('/upload-image', [ImageUploadController::class, 'upload']);
     Route::post('/delete-image', [ImageUploadController::class, 'delete']);
 });
